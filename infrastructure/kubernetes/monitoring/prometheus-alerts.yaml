@@ -1,0 +1,244 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: maratea-alerts
+  namespace: observability
+  labels:
+    app: maratea
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    # Группа: API Gateway
+    - name: api-gateway
+      interval: 30s
+      rules:
+        # API Gateway недоступен
+        - alert: APIGatewayDown
+          expr: up{job="api-gateway",namespace="maratea"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: api-gateway
+          annotations:
+            summary: "API Gateway недоступен"
+            description: "API Gateway в namespace {{ $labels.namespace }} недоступен более 1 минуты"
+        
+        # API Gateway не отвечает на health check
+        - alert: APIGatewayHealthCheckFailed
+          expr: up{job="api-gateway",namespace="maratea"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: api-gateway
+          annotations:
+            summary: "API Gateway health check failed"
+            description: "API Gateway не отвечает на health check более 2 минут"
+        
+        # Высокое время ответа API Gateway
+        - alert: APIGatewayHighLatency
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="api-gateway",namespace="maratea"}[5m])) > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: api-gateway
+          annotations:
+            summary: "Высокая задержка API Gateway"
+            description: "95-й перцентиль времени ответа API Gateway превышает 1 секунду в течение 5 минут"
+        
+        # Высокая частота ошибок API Gateway
+        - alert: APIGatewayHighErrorRate
+          expr: rate(http_requests_total{job="api-gateway",namespace="maratea",status=~"5.."}[5m]) / rate(http_requests_total{job="api-gateway",namespace="maratea"}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            component: api-gateway
+          annotations:
+            summary: "Высокая частота ошибок API Gateway"
+            description: "Более 5% запросов к API Gateway возвращают ошибки 5xx в течение 5 минут"
+    
+    # Группа: PostgreSQL
+    - name: postgresql
+      interval: 30s
+      rules:
+        # PostgreSQL недоступен
+        - alert: PostgreSQLDown
+          expr: up{job="postgres",namespace="maratea"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: postgresql
+          annotations:
+            summary: "PostgreSQL недоступен"
+            description: "PostgreSQL в namespace {{ $labels.namespace }} недоступен более 1 минуты"
+        
+        # Высокое использование CPU PostgreSQL
+        - alert: PostgreSQLHighCPU
+          expr: rate(container_cpu_usage_seconds_total{namespace="maratea",pod=~"postgres.*"}[5m]) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            component: postgresql
+          annotations:
+            summary: "Высокое использование CPU PostgreSQL"
+            description: "Pod {{ $labels.pod }} использует более 80% CPU в течение 5 минут"
+        
+        # Высокое использование памяти PostgreSQL
+        - alert: PostgreSQLHighMemory
+          expr: (container_memory_working_set_bytes{namespace="maratea",pod=~"postgres.*"} / container_spec_memory_limit_bytes{namespace="maratea",pod=~"postgres.*"}) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            component: postgresql
+          annotations:
+            summary: "Высокое использование памяти PostgreSQL"
+            description: "Pod {{ $labels.pod }} использует более 90% доступной памяти в течение 5 минут"
+        
+        # Много активных подключений PostgreSQL
+        - alert: PostgreSQLTooManyConnections
+          expr: pg_stat_database_numbackends{namespace="maratea"} > 80
+          for: 5m
+          labels:
+            severity: warning
+            component: postgresql
+          annotations:
+            summary: "Слишком много активных подключений PostgreSQL"
+            description: "PostgreSQL имеет более 80 активных подключений в течение 5 минут"
+    
+    # Группа: Redis
+    - name: redis
+      interval: 30s
+      rules:
+        # Redis недоступен
+        - alert: RedisDown
+          expr: up{job="redis",namespace="maratea"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: redis
+          annotations:
+            summary: "Redis недоступен"
+            description: "Redis в namespace {{ $labels.namespace }} недоступен более 1 минуты"
+        
+        # Высокое использование памяти Redis
+        - alert: RedisHighMemory
+          expr: (redis_memory_used_bytes{namespace="maratea"} / redis_memory_max_bytes{namespace="maratea"}) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            component: redis
+          annotations:
+            summary: "Высокое использование памяти Redis"
+            description: "Redis использует более 90% доступной памяти в течение 5 минут"
+        
+        # Redis не отвечает на команды
+        - alert: RedisSlowResponse
+          expr: redis_commands_duration_seconds{namespace="maratea",quantile="0.99"} > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            component: redis
+          annotations:
+            summary: "Медленный ответ Redis"
+            description: "99-й перцентиль времени выполнения команд Redis превышает 100ms в течение 5 минут"
+    
+    # Группа: Kubernetes Resources
+    - name: kubernetes-resources
+      interval: 30s
+      rules:
+        # Pod в CrashLoopBackOff
+        - alert: PodCrashLooping
+          expr: kube_pod_container_status_waiting_reason{namespace="maratea",reason="CrashLoopBackOff"} == 1
+          for: 5m
+          labels:
+            severity: critical
+            component: kubernetes
+          annotations:
+            summary: "Pod в состоянии CrashLoopBackOff"
+            description: "Pod {{ $labels.pod }} в namespace {{ $labels.namespace }} находится в состоянии CrashLoopBackOff более 5 минут"
+        
+        # Pod не готов
+        - alert: PodNotReady
+          expr: kube_pod_status_ready{namespace="maratea",condition="false"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            component: kubernetes
+          annotations:
+            summary: "Pod не готов"
+            description: "Pod {{ $labels.pod }} в namespace {{ $labels.namespace }} не готов более 5 минут"
+        
+        # Высокое использование CPU в namespace
+        - alert: NamespaceHighCPU
+          expr: sum(rate(container_cpu_usage_seconds_total{namespace="maratea"}[5m])) > 2
+          for: 10m
+          labels:
+            severity: warning
+            component: kubernetes
+          annotations:
+            summary: "Высокое использование CPU в namespace maratea"
+            description: "Общее использование CPU в namespace maratea превышает 2 ядра в течение 10 минут"
+        
+        # Высокое использование памяти в namespace
+        - alert: NamespaceHighMemory
+          expr: sum(container_memory_working_set_bytes{namespace="maratea"}) / sum(container_spec_memory_limit_bytes{namespace="maratea"}) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+            component: kubernetes
+          annotations:
+            summary: "Высокое использование памяти в namespace maratea"
+            description: "Общее использование памяти в namespace maratea превышает 90% лимита в течение 10 минут"
+    
+    # Группа: Backup
+    - name: backup
+      interval: 1m
+      rules:
+        # Backup job failed
+        - alert: BackupJobFailed
+          expr: kube_job_status_failed{namespace="maratea",job_name=~"postgres-backup.*|redis-backup.*"} > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: backup
+          annotations:
+            summary: "Backup job failed"
+            description: "Backup job {{ $labels.job_name }} в namespace {{ $labels.namespace }} завершился с ошибкой"
+        
+        # Backup не выполнен вовремя
+        - alert: BackupJobNotScheduled
+          expr: time() - kube_job_status_completion_time{namespace="maratea",job_name=~"postgres-backup.*|redis-backup.*"} > 86400
+          for: 1h
+          labels:
+            severity: warning
+            component: backup
+          annotations:
+            summary: "Backup не выполнен вовремя"
+            description: "Backup job {{ $labels.job_name }} не выполнялся более 24 часов"
+    
+    # Группа: Disk Space
+    - name: disk-space
+      interval: 1m
+      rules:
+        # Недостаточно места на диске
+        - alert: DiskSpaceLow
+          expr: (node_filesystem_avail_bytes{namespace="maratea",mountpoint="/"} / node_filesystem_size_bytes{namespace="maratea",mountpoint="/"}) < 0.1
+          for: 5m
+          labels:
+            severity: warning
+            component: storage
+          annotations:
+            summary: "Недостаточно места на диске"
+            description: "На диске осталось менее 10% свободного места на узле {{ $labels.instance }}"
+        
+        # Критически мало места на диске
+        - alert: DiskSpaceCritical
+          expr: (node_filesystem_avail_bytes{namespace="maratea",mountpoint="/"} / node_filesystem_size_bytes{namespace="maratea",mountpoint="/"}) < 0.05
+          for: 5m
+          labels:
+            severity: critical
+            component: storage
+          annotations:
+            summary: "Критически мало места на диске"
+            description: "На диске осталось менее 5% свободного места на узле {{ $labels.instance }}"
+
