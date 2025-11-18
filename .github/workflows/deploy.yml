@@ -150,17 +150,22 @@ jobs:
       
       - name: Apply K8s manifests
         run: |
+          set -e
           export KUBECONFIG=./kubeconfig
           kubectl apply -f infrastructure/kubernetes/namespace.yaml
           # Apply postgres resources (ignore PVC errors as they are immutable)
           kubectl apply -f infrastructure/kubernetes/postgres/secret.yaml
           kubectl apply -f infrastructure/kubernetes/postgres/service.yaml
           kubectl apply -f infrastructure/kubernetes/postgres/deployment.yaml
+          set +e
           kubectl apply -f infrastructure/kubernetes/postgres/pvc.yaml || echo "PVC already exists and is immutable"
+          set -e
           # Apply redis resources (ignore PVC errors as they are immutable)
           kubectl apply -f infrastructure/kubernetes/redis/service.yaml
           kubectl apply -f infrastructure/kubernetes/redis/deployment.yaml
+          set +e
           kubectl apply -f infrastructure/kubernetes/redis/pvc.yaml || echo "PVC already exists and is immutable"
+          set -e
           kubectl apply -f infrastructure/kubernetes/network-policy.yaml
           kubectl apply -f infrastructure/kubernetes/ingress.yaml
           kubectl apply -f infrastructure/kubernetes/api-gateway/ || echo "API Gateway deployment will be created by ArgoCD"
