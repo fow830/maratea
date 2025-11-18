@@ -8,7 +8,6 @@ const nextConfig = {
   env: {
     APP_URL: process.env.APP_URL || 'http://localhost:3000',
   },
-}
+};
 
-module.exports = nextConfig
-
+module.exports = nextConfig;
