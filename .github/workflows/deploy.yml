@@ -55,8 +55,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN }}
       
       - name: Build and push API Gateway
         uses: docker/build-push-action@v5
@@ -91,7 +91,7 @@ jobs:
     if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     environment:
       name: staging
-      url: https://staging.app.maratea.com
+      url: https://api.staging.betaserver.ru
     
     steps:
       - name: Checkout code
@@ -112,6 +112,34 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
           export KUBECONFIG=./kubeconfig
           kubectl config view
+
+      - name: Sync cluster secrets
+        env:
+          KUBECONFIG: ./kubeconfig
+          REGISTRY: ${{ env.REGISTRY }}
+          GHCR_USERNAME: ${{ github.repository_owner }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          TIMEWEB_API_TOKEN: ${{ secrets.TIMEWEB_API_TOKEN }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+        run: |
+          set -eo pipefail
+          kubectl create namespace maratea --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret docker-registry ghcr-secret \
+            --namespace maratea \
+            --docker-server=$REGISTRY \
+            --docker-username="$GHCR_USERNAME" \
+            --docker-password="$GHCR_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic timeweb-api-token \
+            --namespace maratea \
+            --from-literal=TIMEWEB_API_TOKEN="$TIMEWEB_API_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic app-secrets \
+            --namespace maratea \
+            --from-literal=POSTGRES_URL="$POSTGRES_URL" \
+            --from-literal=REDIS_URL="$REDIS_URL" \
+            --dry-run=client -o yaml | kubectl apply -f -
       
       - name: Update K8s manifests with new image
         run: |
@@ -127,6 +155,7 @@ jobs:
           kubectl apply -f infrastructure/kubernetes/postgres/
           kubectl apply -f infrastructure/kubernetes/redis/
           kubectl apply -f infrastructure/kubernetes/network-policy.yaml
+          kubectl apply -f infrastructure/kubernetes/ingress.yaml
           kubectl apply -f infrastructure/kubernetes/api-gateway/ || echo "API Gateway deployment will be created by ArgoCD"
       
       - name: Wait for deployment
