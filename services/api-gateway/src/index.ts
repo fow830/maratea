@@ -6,8 +6,8 @@ import Fastify from 'fastify';
 import { routes } from './config/routes.js';
 import { errorHandler } from './handlers/error.js';
 import { proxyHandler } from './handlers/proxy.js';
-import { requestIdPlugin } from './plugins/request-id.js';
 import { metricsPlugin } from './plugins/metrics.js';
+import { requestIdPlugin } from './plugins/request-id.js';
 import { healthCheckRoutes } from './routes/health.js';
 import { timewebRoutes } from './routes/timeweb.js';
 

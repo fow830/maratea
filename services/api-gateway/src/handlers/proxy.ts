@@ -3,9 +3,9 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import CircuitBreaker from 'opossum';
 import type { RouteConfig } from '../config/routes';
 import {
-  recordProxyRequest,
-  recordCircuitBreakerState,
   recordCircuitBreakerFailure,
+  recordCircuitBreakerState,
+  recordProxyRequest,
 } from '../plugins/metrics.js';
 
 const circuitBreakers = new Map<string, CircuitBreaker>();

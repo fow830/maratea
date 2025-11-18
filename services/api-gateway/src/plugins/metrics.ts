@@ -1,5 +1,5 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
-import { Registry, Counter, Histogram, Gauge } from 'prom-client';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { Counter, Gauge, Histogram, Registry } from 'prom-client';
 
 // Создаем отдельный registry для метрик приложения
 const register = new Registry();
@@ -74,7 +74,6 @@ const processMemoryUsage = new Gauge({
   registers: [register],
 });
 
-
 // Обновляем метрики процесса каждые 5 секунд
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
@@ -145,4 +144,3 @@ export function recordCircuitBreakerFailure(target: string) {
 export function recordRateLimitHit(route: string) {
   rateLimitHits.inc({ route });
 }
-
