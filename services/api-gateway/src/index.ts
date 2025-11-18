@@ -3,11 +3,11 @@ import rateLimit from '@fastify/rate-limit';
 import { logger } from '@maratea/shared';
 import { initializeOpenTelemetry } from '@maratea/shared';
 import Fastify from 'fastify';
-import { routes } from './config/routes';
-import { errorHandler } from './handlers/error';
-import { proxyHandler } from './handlers/proxy';
-import { requestIdPlugin } from './plugins/request-id';
-import { healthCheckRoutes } from './routes/health';
+import { routes } from './config/routes.js';
+import { errorHandler } from './handlers/error.js';
+import { proxyHandler } from './handlers/proxy.js';
+import { requestIdPlugin } from './plugins/request-id.js';
+import { healthCheckRoutes } from './routes/health.js';
 
 const PORT = Number(process.env.PORT) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -50,12 +50,12 @@ async function buildServer() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
   });
 
+  // Rate limiting (in-memory, no Redis for now)
   await server.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
-    redis: process.env.REDIS_URL
-      ? new (await import('ioredis')).default(process.env.REDIS_URL)
-      : undefined,
+    // No Redis - using in-memory store
+    continueExceeding: true,
   });
 
   await server.register(requestIdPlugin);

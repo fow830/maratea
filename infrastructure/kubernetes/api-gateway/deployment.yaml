@@ -66,8 +66,11 @@ spec:
           httpGet:
             path: /health/ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
       imagePullSecrets:
       - name: ghcr-secret
 
