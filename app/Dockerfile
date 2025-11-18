@@ -39,12 +39,16 @@ ENV NODE_ENV=production
 
 # Copy built files
 COPY --from=build /app/app/.next ./.next
-COPY --from=build /app/app/public ./public
 COPY --from=build /app/app/package.json ./package.json
 COPY --from=build /app/app/next.config.js ./next.config.js
 
+# Copy public directory (create if doesn't exist)
+RUN mkdir -p ./public || true
+COPY --from=build /app/app/public* ./public/ || true
+
 # Copy shared dist (if exists)
-COPY --from=build /app/shared/dist ./shared/dist 2>/dev/null || true
+RUN mkdir -p ./shared/dist || true
+COPY --from=build /app/shared/dist* ./shared/dist/ || true
 COPY --from=build /app/shared/package.json ./shared/package.json
 
 # Install only production dependencies
