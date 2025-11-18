@@ -1,0 +1,17 @@
+name: "CodeQL Config"
+
+paths:
+  - "services/**"
+  - "app/**"
+  - "landing/**"
+  - "shared/**"
+
+paths-ignore:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/*.test.js"
+  - "**/*.spec.js"
+  - "node_modules/**"
+  - "dist/**"
+  - ".next/**"
+
