@@ -2,6 +2,11 @@ import { logger } from '@maratea/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import CircuitBreaker from 'opossum';
 import type { RouteConfig } from '../config/routes';
+import {
+  recordProxyRequest,
+  recordCircuitBreakerState,
+  recordCircuitBreakerFailure,
+} from '../plugins/metrics.js';
 
 const circuitBreakers = new Map<string, CircuitBreaker>();
 
@@ -24,10 +29,21 @@ function getCircuitBreaker(target: string): CircuitBreaker {
 
     breaker.on('open', () => {
       logger.warn({ target }, 'Circuit breaker opened');
+      recordCircuitBreakerState(target, 'open');
     });
 
     breaker.on('halfOpen', () => {
       logger.info({ target }, 'Circuit breaker half-open');
+      recordCircuitBreakerState(target, 'half-open');
+    });
+
+    breaker.on('close', () => {
+      logger.info({ target }, 'Circuit breaker closed');
+      recordCircuitBreakerState(target, 'closed');
+    });
+
+    breaker.on('failure', () => {
+      recordCircuitBreakerFailure(target);
     });
 
     circuitBreakers.set(target, breaker);
@@ -60,6 +76,8 @@ export async function proxyHandler(
     'Proxying request'
   );
 
+  const proxyStartTime = Date.now();
+
   try {
     const breaker = getCircuitBreaker(targetUrl);
 
@@ -81,6 +99,10 @@ export async function proxyHandler(
     })) as Response;
 
     const data = await response.json();
+
+    // Record metrics
+    const duration = (Date.now() - proxyStartTime) / 1000;
+    recordProxyRequest(targetUrl, request.method, response.status, duration);
 
     // Forward response headers
     Object.entries(response.headers).forEach(([key, value]) => {

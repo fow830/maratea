@@ -7,7 +7,9 @@ import { routes } from './config/routes.js';
 import { errorHandler } from './handlers/error.js';
 import { proxyHandler } from './handlers/proxy.js';
 import { requestIdPlugin } from './plugins/request-id.js';
+import { metricsPlugin } from './plugins/metrics.js';
 import { healthCheckRoutes } from './routes/health.js';
+import { timewebRoutes } from './routes/timeweb.js';
 
 const PORT = Number(process.env.PORT) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -60,8 +62,16 @@ async function buildServer() {
 
   await server.register(requestIdPlugin);
 
+  // Metrics plugin (must be registered before routes to collect metrics)
+  await server.register(metricsPlugin);
+
   // Health check routes
   await server.register(healthCheckRoutes);
+
+  // Timeweb Cloud integration routes
+  await server.register(timewebRoutes, {
+    prefix: '/integrations/timeweb',
+  });
 
   // Proxy routes
   for (const route of routes) {
