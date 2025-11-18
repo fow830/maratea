@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-basic-auth
+  namespace: argocd
+type: Opaque
+stringData:
+  auth: |
+    # Формат: username:password (bcrypt hash)
+    # Для генерации: htpasswd -nbBC 10 username password
+    # Или использовать: echo -n "password" | openssl passwd -apr1 -stdin
+    # Пример (admin:admin): admin:$apr1$salt$hashed_password
+    # ВАЖНО: Замените на реальный хеш пароля!
+    # Для генерации: htpasswd -nb admin password
+    # Или: echo -n "admin:password" | openssl passwd -apr1 -stdin
+    admin:$apr1$NXqH7ANN$P9m2zKqQl2yak3wNk7pOo/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server
+  namespace: argocd
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: argocd-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "ArgoCD Authentication"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      grpc_read_timeout 300;
+      grpc_send_timeout 300;
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: argocd.staging.betaserver.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - argocd.staging.betaserver.ru
+      secretName: argocd-server-tls
+
