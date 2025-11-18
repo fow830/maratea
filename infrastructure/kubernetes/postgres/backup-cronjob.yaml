@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: maratea
+spec:
+  schedule: "0 2 * * *" # Каждый день в 2:00 UTC
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: postgres-backup
+            image: postgres:16-alpine
+            env:
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: maratea_platform
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: password
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              BACKUP_FILE="/backups/postgres-backup-$(date +%Y%m%d-%H%M%S).sql.gz"
+              echo "Starting PostgreSQL backup at $(date)"
+              pg_dump -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DB | gzip > $BACKUP_FILE
+              echo "Backup completed: $BACKUP_FILE"
+              echo "Backup size: $(du -h $BACKUP_FILE | cut -f1)"
+              # Удаляем старые backup'ы (старше 7 дней)
+              find /backups -name "postgres-backup-*.sql.gz" -mtime +7 -delete
+              echo "Old backups cleaned up"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+          restartPolicy: OnFailure
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: postgres-backup-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-pvc
+  namespace: maratea
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
