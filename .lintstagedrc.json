@@ -1,0 +1,8 @@
+{
+  "*.{ts,tsx}": [
+    "biome check --write"
+  ],
+  "*.{json,md}": [
+    "biome check --write"
+  ]
+}

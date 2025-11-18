@@ -1,0 +1,15 @@
+// This is a base Prisma schema
+// Each service will have its own schema in the future
+// For now, this is a placeholder
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Schemas will be added per service in future phases
+

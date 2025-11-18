@@ -1,0 +1,22 @@
+{
+  "name": "@maratea/app",
+  "version": "1.0.0",
+  "description": "Maratea LMS Platform - Main Application (app.maratea.com)",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "biome check ."
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0"
+  }
+}

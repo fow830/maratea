@@ -1,0 +1,63 @@
+services:
+  # PostgreSQL - будет использоваться всеми сервисами (на старте)
+  postgres:
+    image: postgres:15-alpine
+    container_name: maratea-postgres
+    environment:
+      POSTGRES_USER: maratea_user
+      POSTGRES_PASSWORD: maratea_password
+      POSTGRES_DB: maratea_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maratea_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - maratea-network
+
+  # Redis для кэширования и очередей
+  redis:
+    image: redis:7-alpine
+    container_name: maratea-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - maratea-network
+
+  # PgAdmin для управления БД (опционально, для разработки)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: maratea-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@maratea.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - maratea-network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  maratea-network:
+    name: maratea-network
+

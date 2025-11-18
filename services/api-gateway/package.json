@@ -1,0 +1,28 @@
+{
+  "name": "@maratea/api-gateway",
+  "version": "1.0.0",
+  "description": "API Gateway for Maratea platform",
+  "main": "./dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@maratea/shared": "workspace:*",
+    "fastify": "^4.24.3",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/rate-limit": "^9.1.0",
+    "opossum": "^6.0.0",
+    "ioredis": "^5.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/opossum": "^6.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
