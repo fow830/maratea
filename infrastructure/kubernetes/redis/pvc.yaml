@@ -4,7 +4,7 @@ metadata:
   name: redis-pvc
   namespace: maratea
 spec:
-  storageClassName: standard
+  storageClassName: local-path
   accessModes:
     - ReadWriteOnce
   resources:

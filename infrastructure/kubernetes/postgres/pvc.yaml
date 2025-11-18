@@ -4,7 +4,7 @@ metadata:
   name: postgres-pvc
   namespace: maratea
 spec:
-  storageClassName: standard
+  storageClassName: local-path
   accessModes:
     - ReadWriteOnce
   resources:
