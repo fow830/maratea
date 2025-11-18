@@ -31,6 +31,8 @@ RUN pnpm --filter @maratea/shared build || echo "Shared package build skipped"
 
 # Build Next.js app
 WORKDIR /app/app
+# Create public directory if it doesn't exist (Next.js requires it)
+RUN mkdir -p ./public || true
 RUN pnpm build
 
 FROM base AS runtime
@@ -42,13 +44,13 @@ COPY --from=build /app/app/.next ./.next
 COPY --from=build /app/app/package.json ./package.json
 COPY --from=build /app/app/next.config.js ./next.config.js
 
-# Copy public directory (create if doesn't exist)
-RUN mkdir -p ./public || true
-COPY --from=build /app/app/public* ./public/ || true
+# Copy public directory (will be empty if not created)
+RUN mkdir -p ./public
+COPY --from=build /app/app/public ./public
 
-# Copy shared dist (if exists)
-RUN mkdir -p ./shared/dist || true
-COPY --from=build /app/shared/dist* ./shared/dist/ || true
+# Copy shared dist (create directory first)
+RUN mkdir -p ./shared/dist
+COPY --from=build /app/shared/dist ./shared/dist
 COPY --from=build /app/shared/package.json ./shared/package.json
 
 # Install only production dependencies
