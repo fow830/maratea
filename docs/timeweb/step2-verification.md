@@ -18,16 +18,15 @@
 - **Workflow URL:** ✅ Обновлен на `https://api.staging.betaserver.ru`
 - **PVC handling:** ✅ Исправлена обработка immutable PVC
 
-### 3. Тестовый запуск workflow
-- **Run ID:** 19469132808 (первый запуск)
-- **Статус:** ❌ Частично успешен
-  - ✅ `build-and-scan` - успешно завершен
-  - ❌ `deploy-staging` - ошибка на шаге "Apply K8s manifests"
-  - **Проблема:** PVC пытался изменить `storageClassName` (immutable поле)
-  - **Решение:** Обновлен workflow для игнорирования ошибок PVC
-
-- **Run ID:** 19469254414 (повторный запуск после исправления)
-- **Статус:** ⏳ В процессе выполнения
+### 3. Тестовые запуски workflow
+- **Run ID 19469132808** – ❌ падение на PVC (`storageClassName`)
+- **Run ID 19469254414** – ❌ та же ошибка (в репозитории ещё не было новых манифестов)
+- **Run ID 19469909119** – ❌ `ingress.yaml` отсутствовал в репозитории
+- **Run ID 19470612397** – ❌ `ingress.yaml` ещё не был запушен
+- **Run ID 19470759434** – ✅ **успешно завершён**
+  - Образ опубликован с тегом `0dbf01b…`
+  - Deployment `api-gateway` обновился и запустил новые pod'ы
+  - Health check выполнен через `https://api.staging.betaserver.ru/health`
 
 ## Обнаруженные проблемы и исправления
 
@@ -58,7 +57,7 @@ The PersistentVolumeClaim "postgres-pvc" is invalid: spec: Forbidden: spec is im
 | GitHub Secrets | ✅ | Все секреты присутствуют и актуальны |
 | Workflow конфигурация | ✅ | Обновлена для Timeweb Cloud |
 | Build job | ✅ | Успешно собирает и публикует образы |
-| Deploy job | ⏳ | В процессе проверки после исправлений |
+| Deploy job | ✅ | Run 19470759434 завершён без ошибок |
 
 ## Следующие шаги
 
