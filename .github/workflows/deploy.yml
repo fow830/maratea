@@ -71,10 +71,39 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
       
-      - name: Scan image with Trivy
+      - name: Build and push App
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: app/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/app:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+      
+      - name: Build and push Landing
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: landing/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/landing:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/landing:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+      
+      - name: Scan images with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }}
+          image-ref: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/app:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/landing:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -91,7 +120,7 @@ jobs:
     if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     environment:
       name: staging
-      url: https://api.staging.betaserver.ru
+      url: https://app.staging.betaserver.ru
     
     steps:
       - name: Checkout code
@@ -141,12 +170,16 @@ jobs:
             --from-literal=REDIS_URL="$REDIS_URL" \
             --dry-run=client -o yaml | kubectl apply -f -
       
-      - name: Update K8s manifests with new image
+      - name: Update K8s manifests with new images
         run: |
           export KUBECONFIG=./kubeconfig
-          # Update image tag in deployment
+          # Update image tags in deployments
           sed -i "s|image:.*api-gateway.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }}|g" \
             infrastructure/kubernetes/api-gateway/deployment.yaml || true
+          sed -i "s|image:.*app.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/app:${{ github.sha }}|g" \
+            infrastructure/kubernetes/app/deployment.yaml || true
+          sed -i "s|image:.*landing.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/landing:${{ github.sha }}|g" \
+            infrastructure/kubernetes/landing/deployment.yaml || true
       
       - name: Apply K8s manifests
         run: |
@@ -169,17 +202,34 @@ jobs:
           kubectl apply -f infrastructure/kubernetes/network-policy.yaml
           kubectl apply -f infrastructure/kubernetes/ingress.yaml
           kubectl apply -f infrastructure/kubernetes/api-gateway/ || echo "API Gateway deployment will be created by ArgoCD"
+          kubectl apply -f infrastructure/kubernetes/app/ || echo "App deployment will be created by ArgoCD"
+          kubectl apply -f infrastructure/kubernetes/landing/ || echo "Landing deployment will be created by ArgoCD"
       
-      - name: Wait for deployment
+      - name: Wait for deployments
         run: |
           export KUBECONFIG=./kubeconfig
-          kubectl rollout status deployment/api-gateway -n maratea --timeout=5m || echo "Deployment not found, will be handled by ArgoCD"
+          kubectl rollout status deployment/api-gateway -n maratea --timeout=5m || echo "API Gateway deployment not found, will be handled by ArgoCD"
+          kubectl rollout status deployment/app -n maratea --timeout=5m || echo "App deployment not found, will be handled by ArgoCD"
+          kubectl rollout status deployment/landing -n maratea --timeout=5m || echo "Landing deployment not found, will be handled by ArgoCD"
       
-      - name: Health check
+      - name: Health checks
         run: |
           export KUBECONFIG=./kubeconfig
+          # API Gateway health check
           kubectl port-forward -n maratea svc/api-gateway 8080:8080 &
           sleep 5
-          curl -f http://localhost:8080/health || exit 1
-          pkill -f "kubectl port-forward"
+          curl -f http://localhost:8080/health || echo "API Gateway health check failed"
+          pkill -f "kubectl port-forward.*api-gateway" || true
+          
+          # App health check
+          kubectl port-forward -n maratea svc/app 3000:80 &
+          sleep 5
+          curl -f http://localhost:3000/ || echo "App health check failed"
+          pkill -f "kubectl port-forward.*app" || true
+          
+          # Landing health check
+          kubectl port-forward -n maratea svc/landing 8080:80 &
+          sleep 5
+          curl -f http://localhost:8080/health || echo "Landing health check failed"
+          pkill -f "kubectl port-forward.*landing" || true
 

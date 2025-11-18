@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: landing-tls
+  namespace: maratea
+spec:
+  secretName: landing-tls
+  dnsNames:
+    - staging.betaserver.ru
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+
