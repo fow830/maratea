@@ -1,0 +1,112 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: redis-backup
+  namespace: maratea
+spec:
+  schedule: "0 3 * * *" # Каждый день в 3:00 UTC (через час после PostgreSQL)
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: redis-backup
+            image: redis:7-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              BACKUP_FILE="redis-backup-$(date +%Y%m%d-%H%M%S).rdb"
+              BACKUP_PATH="/tmp/$BACKUP_FILE"
+              
+              echo "Starting Redis backup at $(date)"
+              
+              # Подключение к Redis и создание snapshot
+              redis-cli -h redis -p 6379 --rdb $BACKUP_PATH
+              
+              if [ -f $BACKUP_PATH ]; then
+                echo "Backup completed: $BACKUP_FILE"
+                echo "Backup size: $(du -h $BACKUP_PATH | cut -f1)"
+                
+                # Сжатие backup
+                gzip $BACKUP_PATH
+                BACKUP_PATH="${BACKUP_PATH}.gz"
+                BACKUP_FILE="${BACKUP_FILE}.gz"
+                
+                # Если настроен S3, загружаем туда
+                if [ -n "$S3_ENDPOINT" ] && [ -n "$S3_BUCKET" ]; then
+                  echo "Uploading backup to S3..."
+                  apk add --no-cache python3 py3-pip
+                  pip3 install --no-cache-dir awscli
+                  
+                  export AWS_ACCESS_KEY_ID=$S3_ACCESS_KEY
+                  export AWS_SECRET_ACCESS_KEY=$S3_SECRET_KEY
+                  export AWS_DEFAULT_REGION=$S3_REGION
+                  
+                  aws --endpoint-url=https://$S3_ENDPOINT s3 cp $BACKUP_PATH s3://$S3_BUCKET/redis/$BACKUP_FILE
+                  
+                  if [ $? -eq 0 ]; then
+                    echo "Backup uploaded to S3 successfully"
+                    rm -f $BACKUP_PATH
+                    
+                    # Удаляем старые backup'ы из S3 (старше 7 дней)
+                    echo "Cleaning up old backups from S3 (older than 7 days)..."
+                    aws --endpoint-url=https://$S3_ENDPOINT s3 ls s3://$S3_BUCKET/redis/ | while read -r line; do
+                      dateStr=$(echo $line | awk '{print $1" "$2}')
+                      fileDate=$(date -d "$dateStr" +%s)
+                      currentDate=$(date +%s)
+                      daysDiff=$(( (currentDate - fileDate) / 86400 ))
+                      if [ $daysDiff -gt 7 ]; then
+                        fileName=$(echo $line | awk '{print $4}')
+                        echo "Deleting old backup: $fileName (${daysDiff} days old)"
+                        aws --endpoint-url=https://$S3_ENDPOINT s3 rm s3://$S3_BUCKET/redis/$fileName
+                      fi
+                    done
+                  else
+                    echo "WARNING: Failed to upload backup to S3, keeping local copy"
+                  fi
+                else
+                  echo "S3 not configured, keeping backup locally"
+                fi
+              else
+                echo "ERROR: Backup file not created"
+                exit 1
+              fi
+              
+              echo "Backup process completed at $(date)"
+            env:
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: s3-backup-secret
+                  key: S3_ENDPOINT
+                  optional: true
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: s3-backup-secret
+                  key: S3_ACCESS_KEY
+                  optional: true
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: s3-backup-secret
+                  key: S3_SECRET_KEY
+                  optional: true
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: s3-backup-secret
+                  key: S3_BUCKET
+                  optional: true
+            - name: S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: s3-backup-secret
+                  key: S3_REGION
+                  optional: true
+          restartPolicy: OnFailure
+
