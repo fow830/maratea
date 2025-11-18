@@ -49,6 +49,12 @@ spec:
           value: "api-gateway"
         - name: ALLOWED_ORIGINS
           value: "https://staging.app.maratea.com,https://app.maratea.com"
+        - name: TIMEWEB_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: timeweb-api-token
+              key: TIMEWEB_API_TOKEN
+              optional: true
         resources:
           requests:
             memory: "128Mi"

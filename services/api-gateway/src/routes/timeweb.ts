@@ -2,6 +2,11 @@ import type { FastifyPluginAsync } from 'fastify';
 import { TimewebClient } from '../services/timeweb.js';
 
 export const timewebRoutes: FastifyPluginAsync = async (fastify) => {
+  // Timeweb routes are optional - only register if token is available
+  if (!process.env.TIMEWEB_API_TOKEN) {
+    return; // Skip registration if token is not set
+  }
+
   const client = new TimewebClient();
 
   fastify.get('/domains', async () => {
