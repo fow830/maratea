@@ -41,19 +41,16 @@ FROM base AS runtime
 
 ENV NODE_ENV=production
 
-# Copy built application
-COPY --from=build /app/app ./app
-
-# Copy shared package.json (shared/dist не нужен рантайму)
-RUN mkdir -p ./shared
-COPY --from=build /app/shared/package.json ./shared/package.json
-
-# Install only production dependencies
+# Copy package manifests и устанавливаем только production-зависимости
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY shared/package.json ./shared/
 COPY app/package.json ./app/
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+
+# После установки зависимостей копируем собранное приложение
+RUN rm -rf ./app
+COPY --from=build /app/app ./app
 
 WORKDIR /app/app
 
