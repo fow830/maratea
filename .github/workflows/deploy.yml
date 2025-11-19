@@ -110,6 +110,7 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-api-gateway.sarif'
+          category: 'trivy-api-gateway'
 
       - name: Scan App image with Trivy
         uses: aquasecurity/trivy-action@master
@@ -124,6 +125,7 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-app.sarif'
+          category: 'trivy-app'
 
       - name: Scan Landing image with Trivy
         uses: aquasecurity/trivy-action@master
@@ -138,6 +140,7 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-landing.sarif'
+          category: 'trivy-landing'
   
   deploy-staging:
     needs: build-and-scan
