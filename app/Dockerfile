@@ -2,8 +2,10 @@ FROM node:22-alpine AS base
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
+# Install pnpm (доступен глобально, чтобы не требовать сеть в рантайме)
+RUN corepack enable \
+  && corepack prepare pnpm@8.15.0 --activate \
+  && npm install -g pnpm@8.15.0
 
 FROM base AS dependencies
 
@@ -66,5 +68,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-CMD ["/app/node_modules/.bin/next", "start", "-p", "3000", "-H", "0.0.0.0"]
+CMD ["pnpm", "start"]
 
