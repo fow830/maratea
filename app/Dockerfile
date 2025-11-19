@@ -41,16 +41,10 @@ FROM base AS runtime
 
 ENV NODE_ENV=production
 
-# Copy built files
-COPY --from=build /app/app/.next ./.next
-COPY --from=build /app/app/package.json ./package.json
-COPY --from=build /app/app/next.config.js ./next.config.js
+# Copy built application
+COPY --from=build /app/app ./app
 
-# Copy public directory (will be empty if not created)
-RUN mkdir -p ./public
-COPY --from=build /app/app/public ./public
-
-# Copy shared package.json (shared/dist is not needed at runtime for Next.js)
+# Copy shared package.json (shared/dist не нужен рантайму)
 RUN mkdir -p ./shared
 COPY --from=build /app/shared/package.json ./shared/package.json
 
