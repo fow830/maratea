@@ -5,7 +5,7 @@ WORKDIR /app
 # Install pnpm (доступен глобально, чтобы не требовать сеть в рантайме)
 RUN corepack enable \
   && corepack prepare pnpm@8.15.0 --activate \
-  && npm install -g pnpm@8.15.0
+  && npm install -g pnpm@8.15.0 --force
 
 FROM base AS dependencies
 
