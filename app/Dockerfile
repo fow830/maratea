@@ -48,9 +48,13 @@ COPY --from=build /app/app/next.config.js ./next.config.js
 RUN mkdir -p ./public
 COPY --from=build /app/app/public ./public
 
-# Copy shared dist (create directory first)
+# Copy shared dist (create directory first, copy only if exists)
 RUN mkdir -p ./shared/dist
-COPY --from=build /app/shared/dist ./shared/dist
+# Use shell to handle optional copy of shared/dist
+RUN --mount=from=build,source=/app/shared/dist,target=/tmp/shared-dist \
+    if [ -d /tmp/shared-dist ] && [ "$(ls -A /tmp/shared-dist 2>/dev/null)" ]; then \
+      cp -r /tmp/shared-dist/* ./shared/dist/; \
+    fi
 COPY --from=build /app/shared/package.json ./shared/package.json
 
 # Install only production dependencies
