@@ -56,7 +56,7 @@ spec:
             cpu: "500m"
         livenessProbe:
           httpGet:
-            path: /api/health
+            path: /
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
