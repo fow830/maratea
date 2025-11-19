@@ -97,22 +97,47 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
       
-      - name: Scan images with Trivy
+      - name: Scan API Gateway image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/app:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/landing:${{ github.sha }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }}
           format: 'sarif'
-          output: 'trivy-results.sarif'
+          output: 'trivy-api-gateway.sarif'
           severity: 'CRITICAL,HIGH'
-      
-      - name: Upload Trivy results to GitHub Security
+
+      - name: Upload Trivy API Gateway results
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: 'trivy-api-gateway.sarif'
+
+      - name: Scan App image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/app:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-app.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy App results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-app.sarif'
+
+      - name: Scan Landing image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/landing:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-landing.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy Landing results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-landing.sarif'
   
   deploy-staging:
     needs: build-and-scan
